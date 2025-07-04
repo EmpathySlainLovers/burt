@@ -65,7 +65,6 @@ def upgrade_self(code_snippet):
     print("🔧 I have upgraded myself!")
 
 def parse_nl_to_code(user_input):
-    # Simple pattern matching for common tasks
     patterns = [
         (r"(take|capture|get) (a )?photo|open (the )?camera", "take_photo", "termux-camera-photo /sdcard/burt_photo_$(date +%s).jpg"),
         (r"battery status|check battery", "battery_status", "termux-battery-status"),
@@ -73,7 +72,6 @@ def parse_nl_to_code(user_input):
         (r"turn off wifi", "wifi_off", "termux-wifi-enable false"),
         (r"list files|show files", "list_files", "ls"),
         (r"show (my )?ip", "show_ip", "curl ifconfig.me"),
-        # Add more patterns as desired
     ]
     for pat, name, cmd in patterns:
         if re.search(pat, user_input, re.IGNORECASE):
@@ -81,8 +79,6 @@ def parse_nl_to_code(user_input):
     return None, None
 
 def fallback_llm_code(user_input):
-    # Placeholder: You can call your local llama.cpp model here for real code generation.
-    # For now, just return a dummy function.
     return "def custom_action():\n    print('This is a stub for: {}')\n".format(user_input)
 
 def show_help():
@@ -97,7 +93,17 @@ run COMMAND             - Execute a learned command
 upgrade CODE            - Add Python code to myself (be careful!)
 help                    - Show this help message
 exit                    - Quit
+Or just talk to me!
 """)
+
+def chat_with_llama(user_input):
+    llama_path = os.path.expanduser("~/burt/llama.cpp/build/bin/llama-cli")
+    model_path = os.path.expanduser("~/burt/models/tinyllama.gguf")
+    try:
+        result = subprocess.check_output([llama_path, "-m", model_path, "-p", user_input], text=True)
+        print(result.strip())
+    except Exception as e:
+        print("🤖 (LLM error):", e)
 
 def main():
     if len(sys.argv) < 2:
@@ -106,12 +112,10 @@ def main():
 
     user_input = " ".join(sys.argv[1:]).strip()
 
-    # Help
     if user_input.lower() == "help":
         show_help()
         return
 
-    # Memory actions
     if user_input.startswith("remember "):
         try:
             _, key, value = user_input.split(" ", 2)
@@ -130,14 +134,12 @@ def main():
         forget(key)
         return
 
-    # Learn a new command from natural language
     if user_input.startswith("learn "):
         nl = user_input[6:]
         cname, scmd = parse_nl_to_code(nl)
         if cname:
             learn(cname, scmd)
         else:
-            # Fallback: generate a Python function using LLM or placeholder
             code = fallback_llm_code(nl)
             ensure_commands_file()
             with open(COMMANDS_FILE, "a") as f:
@@ -145,19 +147,18 @@ def main():
             print(f"🤔 I tried to learn from LLM/stub as '{nl}'.")
         return
 
-    # Run a learned command
     if user_input.startswith("run "):
         _, cname = user_input.split(" ", 1)
         run_learned_command(cname)
         return
 
-    # Self-upgrade (dangerous!)
     if user_input.startswith("upgrade "):
         code = user_input[8:]
         upgrade_self(code)
         return
 
-    print("I don't understand. Type 'help' for commands.")
+    # If none of the commands matched, just chat!
+    chat_with_llama(user_input)
 
 if __name__ == "__main__":
     main()
